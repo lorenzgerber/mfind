@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <dirent.h>
+#include <errno.h>
 #include <pthread.h>
 
 int main(int argc, char *argv[]) {
@@ -46,10 +48,18 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    if(access(argv[optind], F_OK)<0){
-        perror(access);
-        exit(EXIT_FAILURE);
+    DIR* dir = opendir(argv[optind]);
+    if (dir)
+    {
+        printf("works\n");/* Directory exists. */
+        closedir(dir);
     }
+    else if (ENOENT == errno)
+    {
+        /* Directory does not exist. */
+        perror("opendir");
+    }
+
 
     printf("name argument = %s\n", argv[optind]);
 
