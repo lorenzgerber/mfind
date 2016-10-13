@@ -41,14 +41,14 @@ listPosition listLast(list *l){
 }
 
 // get next position
-listPosition listNext(list *l, listPosition p) {
+listPosition listNext(listPosition p) {
     return p->next;
-};
+}
 
 // get previous position
-listPosition listPrevious(list *l, listPosition p){
+listPosition listPrevious(listPosition p){
     return p->previous;
-};
+}
 
 // is list empty
 bool listIsEmpty(list *l) {
@@ -56,7 +56,7 @@ bool listIsEmpty(list *l) {
 }
 
 // insert list element
-listPosition listInsert(list *l,listPosition p,data d) {
+listPosition listInsert(listPosition p,data d) {
     listPosition newPosition=malloc(sizeof(element));
     newPosition->data=d;
     newPosition->next=p->next;
@@ -65,12 +65,12 @@ listPosition listInsert(list *l,listPosition p,data d) {
     p->next=newPosition;
     return newPosition;
 
-};
+}
 
 // inspect list element
-data* listInspect(list *l, listPosition p) {
+data* listInspect(listPosition p) {
   return p->data;
-};
+}
 
 // remove list element
 listPosition listRemove(list *l, listPosition p) {
@@ -81,7 +81,7 @@ listPosition listRemove(list *l, listPosition p) {
         l->freeFunc(p->data);
     free(p);
     return beforeRemove;
-};
+}
 
 // free memory
 void listFree(list *l){
@@ -91,7 +91,7 @@ void listFree(list *l){
     }
     free(l->head);
     free(l);
-};
+}
 
 
 
@@ -102,4 +102,4 @@ bool listIsEnd(list *l, listPosition p){
   } else {
     return false;
   }
-};
+}

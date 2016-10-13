@@ -5,13 +5,13 @@
 CC=gcc
 CFLAGS= -Wall -pedantic -std=c11 -Wextra -Werror -Wmissing-declarations -Wmissing-prototypes -Werror-implicit-function-declaration -Wreturn-type -Wparentheses -Wunused -Wold-style-definition -Wundef -Wshadow -Wstrict-prototypes -Wswitch-default -Wstrict-prototypes -Wunreachable-code
 
-all: mish
+all: mfind
 
-mish: mish.o execute.o parser.o sighant.o
-	$(CC) $(CFLAGS) -o mish sighant.o execute.o parser.o mish.o
+mish: mfind.o list.o 
+	$(CC) $(CFLAGS) -o mfind list.o mfind.o
 
-mish.o execute.o parser.o: sighant.c sighant.h parser.c parser.h execute.c execute.h mish.c mish.h
-	$(CC) $(CFLAGS) -c -g sighant.c parser.c execute.c mish.c
+mfind.o list.o: mfind.c list.c list.h
+	$(CC) $(CFLAGS) -c mfind.c list.c
 
 clean:
-	 rm -f rm mish *.o
+	 rm -f rm *.o

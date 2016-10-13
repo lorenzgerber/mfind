@@ -1,9 +1,4 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <dirent.h>
-#include <errno.h>
-#include <pthread.h>
+#include "mfind.h"
 
 int main(int argc, char *argv[]) {
 
@@ -41,6 +36,14 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    if(tfnd){
+        printf("type set to %d\n", type);
+    }
+
+    if(pfnd){
+        printf("number of threads %d\n", nrthr);
+    }
+
 
 
     if (optind >= argc) {
@@ -48,17 +51,24 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    if(access(argv[optind], F_OK)<0){
+        perror("acces");
+        exit(EXIT_FAILURE);
+    }
+
+    /*
     DIR* dir = opendir(argv[optind]);
     if (dir)
     {
-        printf("works\n");/* Directory exists. */
+        printf("works\n");
         closedir(dir);
     }
     else if (ENOENT == errno)
     {
-        /* Directory does not exist. */
-        perror("opendir");
+                perror("opendir");
     }
+     */
+
 
 
     printf("name argument = %s\n", argv[optind]);
@@ -101,7 +111,7 @@ int main(int argc, char *argv[]) {
 
 
 
-int search(){
+int search(void){
 
     return 0;
 }

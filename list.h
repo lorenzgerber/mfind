@@ -47,23 +47,23 @@ void listSetMemHandler(list *l, memFreeFunc *f);
 // return first position
 listPosition listFirst(list *l);
 
-// reutrn last position
+// return last position
 listPosition listLast(list *l);
 
 // get next position
-listPosition listNext(list *l, listPosition p);
+listPosition listNext(listPosition p);
 
 // get previous position
-listPosition listPrevious(list *l, listPosition p);
+listPosition listPrevious(listPosition p);
 
 // is list empty
 bool listIsEmpty(list *l);
 
 // insert list element
-listPosition listInsert(list *l,listPosition p,data d);
+listPosition listInsert(listPosition p,data d);
 
 // inspect list element
-data* listInspect(list *l, listPosition p);
+data* listInspect(listPosition p);
 
 // remove list element
 listPosition listRemove(list *l, listPosition p);
