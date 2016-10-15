@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "mfind.h"
 #include <pthread.h>
+#include <limits.h>
 
 
 void pathRecordFree(void *recordToFree){
@@ -20,35 +21,37 @@ int main(int argc, char *argv[]) {
     /*
      * Initialize variables
      */
+    int opt;
     char type;
-    int tfnd;
-    int nrthr, pfnd;
+    int typeFound;
+    int nrArgPath, pathFound;
     list *pathList = listEmpty();
     listSetMemHandler(pathList, pathRecordFree);
     list *resultList = listEmpty();
     listSetMemHandler(resultList, resultRecordFree);
 
-    tfnd = 0;
-    pfnd = 0;
-    int opt;
+    typeFound = 0;
+    pathFound = 0;
+    nrArgPath = 0;
+
 
 
     /*
      * Parse commandline options
      *
-     * mfind [-t type] [-p nrthr] start1 [start ...] name
+     * mfind [-t type] [-p nrThreads] start1 [start ...] name
      *
      */
     while ((opt = getopt(argc, argv, "t:p:")) != -1) {
         switch (opt) {
             case 't':
                 type = *optarg;
-                tfnd = 1;
+                typeFound = 1;
                 break;
             case 'p':
 
-                nrthr = atoi(optarg);
-                pfnd = 1;
+                nrThreads = atoi(optarg);
+                pathFound = 1;
                 break;
             default:
                 fprintf(stderr, "Usage: %s [-t nsecs] [-n] name\n",
@@ -57,13 +60,12 @@ int main(int argc, char *argv[]) {
         }
     }
 
-
-    if(tfnd){
+    if(typeFound){
         printf("type set to %c\n", type);
     }
 
-    if(pfnd){
-        printf("number of threads %d\n", nrthr);
+    if(pathFound){
+        printf("number of threads %d\n", nrThreads);
     }
 
     if (optind >= argc) {
@@ -71,9 +73,18 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    /*
+     * are the provided path'es valid
+     */
     for (int iii = argc - 2 ; iii >= optind; iii--){
-        if(access(argv[iii], F_OK)<0){
-            perror("acces");
+        struct stat statbuf;
+        if (stat(argv[iii], &statbuf) < 0){
+            fprintf(stderr, "lstat: %s\n", argv[iii]);
+            perror("");
+            exit(EXIT_FAILURE);
+        }
+        if (S_ISDIR(statbuf.st_mode) == 0){
+            fprintf(stderr,"%s is not or does not link to a directory\n", argv[iii]);
             exit(EXIT_FAILURE);
         }
 
@@ -82,34 +93,53 @@ int main(int argc, char *argv[]) {
         insertionRecord->path = insertionPath;
         insertionRecord->searched = false;
         listInsert(listLast(pathList), (data)insertionRecord);
+        nrArgPath++;
 
     }
 
-    pthread_t threads[nrthr];
-    threads[0] = pthread_self();
+    /*
+     * Initialize nrPath Semaphore
+     */
+    //sem_t* pathCount;
+    if(sem_init(&pathCount, 0, nrArgPath)<0){
+        perror("sem_init");
+        exit(EXIT_FAILURE);
+    }
+
 
     /*
      * Start all threads
-     *
-     * Control access to shared data structures
-     *
-     * Check for end of work
-     *
-     * print out results
-     *
      */
-    for(int iii = 1; iii < nrthr;iii++){
-        pthread_create(&threads[iii], NULL, search, NULL);
+    pthread_t threads[nrThreads];
+    threads[0] = pthread_self();
 
+    for(int iii = 1; iii < nrThreads;iii++){
+        if(pthread_create(&threads[iii], NULL, &threadMain, NULL)){
+            perror("pthread");
+            exit(EXIT_FAILURE);
+        }
     }
 
+    /*
+     * start main function for master thread
+     */
+    threadMain(NULL);
 
 
+    /*
+     * wait for all threads to finish
+     */
+    for(int iii = 1; iii < nrThreads;iii++){
+        if(pthread_join(threads[iii], NULL)){
+            perror("pthread_join");
+        }
+    }
 
-
-
-
+    /*
+     * print the results
+     */
     printf("this is the shit\n");
+    printf("%ld", pathmax);
     exit(EXIT_SUCCESS);
 }
 
@@ -128,8 +158,72 @@ int main(int argc, char *argv[]) {
  * - start again
  *
  */
-void* search(void * arg){
-    printf("in the thread");
+void *threadMain(void *dummy){
+    printf("in the thread\n");
 
-    return ((void *)0);
+    // increase waitCount initially;
+    waitCount++;
+    int gotWork;
+
+
+    // need to put this all in a do while waitCount < nrThreads
+    do{
+        // tryWait on pathCount Semaphore
+        gotWork = sem_trywait(&pathCount);
+        if(gotWork==0){
+            printf("we got some work\n");
+            waitCount--;
+            if(readDir()<0){
+                fprintf(stderr,"readDir: something wrong\n");
+            }
+        } else if (errno!=EAGAIN){
+            perror("sem_trywait");
+        } else if (errno==EAGAIN){
+            printf("currently no work\n");
+        }
+
+    } while (waitCount < nrThreads);
+
+    printf("seems like everybody finished\n");
+
+
+    return NULL;
 }
+
+/*
+ * adding a path to a the pathList
+ */
+int readDir(void){
+    // lock the pathList
+
+    // find path to work on
+
+    // mark path as done
+
+    // unlock pathlist
+
+    // loop through directory entries
+
+        //if directory found
+            //mutex lock pathList
+            //add directory to path list
+            //semaphore post
+    //sem_post(&pathCount);
+            //mutex unlock pathlist
+
+        //if match found
+            //mutex lock resultList
+            //add to resultList
+            //mutex unlock resultList
+    waitCount++;
+    return 0;
+}
+
+/*
+ * getting a path to threadMain
+ */
+
+
+/*
+ * adding a path to the resultList
+ */
