@@ -1,8 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "mfind.h"
-#include <pthread.h>
-#include <limits.h>
-#include <sys/stat.h>
+
 
 pthread_mutex_t mtx_pathList;
 pthread_mutex_t mtx_resultList;
@@ -32,8 +30,7 @@ int main(int argc, char *argv[]) {
      * Initialize variables
      */
     int opt;
-
-    int typeFound;
+    
     int pathFound;
     int nrDirectories = 0;
 
@@ -42,7 +39,6 @@ int main(int argc, char *argv[]) {
     resultList = listEmpty();
     listSetMemHandler(resultList, resultRecordFree);
 
-    typeFound = 0;
     pathFound = 0;
     pthread_mutex_init(&mtx_pathList, NULL);
     pthread_mutex_init(&mtx_resultList, NULL);
@@ -57,7 +53,6 @@ int main(int argc, char *argv[]) {
         switch (opt) {
             case 't':
                 matchType = *optarg;
-                typeFound = 1;
                 break;
             case 'p':
 
@@ -159,7 +154,22 @@ int main(int argc, char *argv[]) {
      */
     printf("this is the shit\n");
     printf("%ld\n", pathmax);
-    printf("number of directories %d\n", nrDirectories);
+
+    if(listIsEmpty(resultList)){
+        printf("There was no match");
+    } else {
+        bool moreResults = true;
+        listPosition currentPosition = listFirst(resultList);
+        while(moreResults){
+            printf("%s\n", ((resultRecord*)listInspect(currentPosition))->path);
+
+            if(listIsEnd(resultList,currentPosition)==true){
+                moreResults = false;
+            } else {
+                currentPosition = listNext(currentPosition);
+            }
+        }
+    }
     exit(EXIT_SUCCESS);
 }
 
@@ -274,7 +284,7 @@ int readDir(void){
             matched = true;
         };
 
-
+        // get lstat of current entry
         if(lstat(fullpath, &statbuf)<0){
             perror("lstat");
         };
