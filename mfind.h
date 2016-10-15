@@ -17,7 +17,7 @@
 #ifdef PATH_MAX
 static long pathmax = PATH_MAX;
 #else
-static long pathmax = 0;
+static long pathmax = 4096;
 #endif
 
 

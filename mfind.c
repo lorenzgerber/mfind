@@ -2,6 +2,7 @@
 #include "mfind.h"
 #include <pthread.h>
 #include <limits.h>
+#include <sys/stat.h>
 
 pthread_mutex_t mtx_pathList;
 pthread_mutex_t mtx_resultList;
@@ -10,6 +11,7 @@ sem_t pathCount;
 int nrThreads = 0;
 list *pathList;
 list *resultList;
+char type;
 
 
 void pathRecordFree(void *recordToFree){
@@ -30,7 +32,7 @@ int main(int argc, char *argv[]) {
      * Initialize variables
      */
     int opt;
-    char type;
+
     int typeFound;
     int nrArgPath, pathFound;
 
@@ -214,12 +216,12 @@ int readDir(void){
         if(((pathRecord*)listInspect(currentPosition))->searched == false){
             printf("we have one to work on\n");
             // mark path as done
-            pathRecord* workRecord = listInspect(currentPosition);
+            pathRecord* workRecord = (pathRecord*)listInspect(currentPosition);
             workRecord->searched = true;
 
             foundOrEnd = true;
         }
-        if(listIsEnd(pathList,currentPosition)==true){
+        if(listIsEnd(pathList,currentPosition)==true || foundOrEnd == true){
             foundOrEnd = true;
         } else {
             currentPosition = listNext(currentPosition);
@@ -231,36 +233,100 @@ int readDir(void){
     printf("pathlist unlocked\n");
 
     // loop through directory entries
-    
+    struct stat statbuf;
+    struct dirent *dirp;
+    DIR *dp;
+    char * currentPath = ((pathRecord*)listInspect(currentPosition))->path;
+
+    if((dp = opendir(currentPath))==NULL){
+        printf("can't read directory");
+    }
+
+    while ((dirp= readdir(dp)) != NULL){
+        if (strcmp(dirp->d_name, ".") == 0  ||
+            strcmp(dirp->d_name, "..") == 0)
+            continue;
+        printf("%s %d\n", dirp->d_name, (int) strlen(currentPath));
+
+        /*
+         * prepare path + name
+         */
+        size_t pathLength = strlen(currentPath);
+        size_t fileLength = strlen(dirp->d_name);
+        int multiplier = 1;
+        while((pathLength+fileLength+2) > (pathmax * multiplier)){
+            multiplier ++;
+        }
+        char* fullpath = calloc(pathmax * multiplier, sizeof(char));
+        strcpy(fullpath, currentPath);
+        fullpath[pathLength++] = '/';
+        strcpy(&fullpath[pathLength], dirp->d_name);
+        //printf("%s\n", fullpath);
+
+        if(lstat(fullpath, &statbuf)<0){
+            perror("lstat");
+        };
 
         //if directory found
-            //mutex lock pathList
-    pthread_mutex_lock(&mtx_pathList);
-    printf("pathlist locked\n");
-            //add directory to path list
-            //semaphore post
-    //sem_post(&pathCount);
-            //mutex unlock pathlist
-    pthread_mutex_unlock(&mtx_pathList);
-    printf("pathlist unlocked\n");
-
-        //if match found
+        if (S_ISDIR(statbuf.st_mode) == 1){
+            printf("%s is a directory\n", fullpath);
+            // check match
+            //if match found
             //mutex lock resultList
-    pthread_mutex_lock(&mtx_resultList);
-    printf("resultlist locked\n");
+            pthread_mutex_lock(&mtx_resultList);
+            printf("resultlist locked\n");
             //add to resultList
             //mutex unlock resultList
-    pthread_mutex_unlock(&mtx_resultList);
-    printf("resultlist unlocked\n");
+            pthread_mutex_unlock(&mtx_resultList);
+            printf("resultlist unlocked\n");
+
+
+            //mutex lock pathList
+            pthread_mutex_lock(&mtx_pathList);
+            printf("pathlist locked\n");
+
+            //add directory to path list
+
+            //semaphore post
+
+            //sem_post(&pathCount);
+
+            //mutex unlock pathlist
+            pthread_mutex_unlock(&mtx_pathList);
+            printf("pathlist unlocked\n");
+
+        } else if(S_ISREG(statbuf.st_mode) ==1){
+            printf("%s is a file\n", fullpath);
+            // check match
+            //if match found
+            //mutex lock resultList
+            pthread_mutex_lock(&mtx_resultList);
+            printf("resultlist locked\n");
+            //add to resultList
+            //mutex unlock resultList
+            pthread_mutex_unlock(&mtx_resultList);
+            printf("resultlist unlocked\n");
+
+        } else if(S_ISLNK(statbuf.st_mode) == 1){
+            printf("%s is a link\n", fullpath);
+            // check match
+            //if match found
+            //mutex lock resultList
+            pthread_mutex_lock(&mtx_resultList);
+            printf("resultlist locked\n");
+            //add to resultList
+            //mutex unlock resultList
+            pthread_mutex_unlock(&mtx_resultList);
+            printf("resultlist unlocked\n");
+
+        }
+
+
+    }
+    if (closedir(dp) < 0){
+        perror("closedir");
+    }
+
     waitCount++;
     return 0;
 }
-
-/*
- * getting a path to threadMain
- */
-
-
-/*
- * adding a path to the resultList
- */
