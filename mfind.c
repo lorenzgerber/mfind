@@ -12,6 +12,7 @@ int nrThreads = 0;
 list *pathList;
 list *resultList;
 char type;
+char *toMatch;
 
 
 void pathRecordFree(void *recordToFree){
@@ -107,6 +108,10 @@ int main(int argc, char *argv[]) {
         nrArgPath++;
 
     }
+    /*
+     * String to match
+     */
+    toMatch = strdup(argv[argc-1]);
 
     /*
      * Initialize nrPath Semaphore
@@ -262,6 +267,12 @@ int readDir(void){
         fullpath[pathLength++] = '/';
         strcpy(&fullpath[pathLength], dirp->d_name);
         //printf("%s\n", fullpath);
+
+        //checkmatch
+        if(strcmp(dirp->d_name, toMatch)==0){
+            printf("WE GOT A MATCH\n");
+        };
+
 
         if(lstat(fullpath, &statbuf)<0){
             perror("lstat");
