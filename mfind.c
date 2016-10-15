@@ -3,6 +3,14 @@
 #include <pthread.h>
 #include <limits.h>
 
+pthread_mutex_t mtx_pathList;
+pthread_mutex_t mtx_resultList;
+int waitCount = 0;
+sem_t pathCount;
+int nrThreads = 0;
+list *pathList;
+list *resultList;
+
 
 void pathRecordFree(void *recordToFree){
     pathRecord *record = (pathRecord*)recordToFree;
@@ -25,16 +33,17 @@ int main(int argc, char *argv[]) {
     char type;
     int typeFound;
     int nrArgPath, pathFound;
-    list *pathList = listEmpty();
+
+    pathList = listEmpty();
     listSetMemHandler(pathList, pathRecordFree);
-    list *resultList = listEmpty();
+    resultList = listEmpty();
     listSetMemHandler(resultList, resultRecordFree);
 
     typeFound = 0;
     pathFound = 0;
     nrArgPath = 0;
-
-
+    pthread_mutex_init(&mtx_pathList, NULL);
+    pthread_mutex_init(&mtx_resultList, NULL);
 
     /*
      * Parse commandline options
@@ -179,7 +188,7 @@ void *threadMain(void *dummy){
         } else if (errno!=EAGAIN){
             perror("sem_trywait");
         } else if (errno==EAGAIN){
-            printf("currently no work\n");
+            //printf("currently no work\n");
         }
 
     } while (waitCount < nrThreads);
@@ -195,26 +204,54 @@ void *threadMain(void *dummy){
  */
 int readDir(void){
     // lock the pathList
+    pthread_mutex_lock(&mtx_pathList);
+    printf("pathlist locked\n");
+    listPosition currentPosition = listFirst(pathList);
+    bool foundOrEnd = false;
 
     // find path to work on
+    while(foundOrEnd == false){
+        if(((pathRecord*)listInspect(currentPosition))->searched == false){
+            printf("we have one to work on\n");
+            // mark path as done
+            pathRecord* workRecord = listInspect(currentPosition);
+            workRecord->searched = true;
 
-    // mark path as done
+            foundOrEnd = true;
+        }
+        if(listIsEnd(pathList,currentPosition)==true){
+            foundOrEnd = true;
+        } else {
+            currentPosition = listNext(currentPosition);
+        }
+    }
 
     // unlock pathlist
+    pthread_mutex_unlock(&mtx_pathList);
+    printf("pathlist unlocked\n");
 
     // loop through directory entries
+    
 
         //if directory found
             //mutex lock pathList
+    pthread_mutex_lock(&mtx_pathList);
+    printf("pathlist locked\n");
             //add directory to path list
             //semaphore post
     //sem_post(&pathCount);
             //mutex unlock pathlist
+    pthread_mutex_unlock(&mtx_pathList);
+    printf("pathlist unlocked\n");
 
         //if match found
             //mutex lock resultList
+    pthread_mutex_lock(&mtx_resultList);
+    printf("resultlist locked\n");
             //add to resultList
             //mutex unlock resultList
+    pthread_mutex_unlock(&mtx_resultList);
+    printf("resultlist unlocked\n");
     waitCount++;
     return 0;
 }

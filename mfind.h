@@ -20,9 +20,7 @@ static long pathmax = PATH_MAX;
 static long pathmax = 0;
 #endif
 
-static int waitCount = 0;
-static sem_t pathCount;
-static int nrThreads = 0;
+
 
 typedef struct pathRecord {
     char* path;
