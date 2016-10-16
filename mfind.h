@@ -10,7 +10,6 @@
 #include <stdbool.h>
 #include <limits.h>
 #include <sys/stat.h>
-#include <semaphore.h>
 #include <pthread.h>
 #include <limits.h>
 #include <sys/stat.h>
