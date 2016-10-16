@@ -3,7 +3,7 @@
 # Assignment 3 5DV088 HT16
 # Makefile for mish - minimal shell
 CC=gcc
-CFLAGS= -Wall -pedantic -std=c11 -pthread
+CFLAGS= -Wall -pedantic -std=c11 -pthread -D_SVID_SOURCE
 
 all: mfind
 
