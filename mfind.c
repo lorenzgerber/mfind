@@ -188,40 +188,25 @@ int main(int argc, char *argv[]) {
  */
 void *threadMain(void *dummy){
     int callToOpenDir = 0;
-    int threadsCorrected = nrThreads;
-    if(nrThreads==1){
-        threadsCorrected++;
-    }
 
     waitCount++;
     int semValue;
 
     do{
 
-
-        //printf("%d\n", waitCount);
         int check = semwait(n);
-
-        //printf("%d\n", semValue);
 
         if (check == -1) {
             perror("Error waiting for semaphore");
-            exit(1);
-        } else if(check == EAGAIN){
-            //printf("no work available\n");
-        } else {
-            //printf("readDir\n");
+        } else if(check != EAGAIN){
             waitCount--;
             callToOpenDir += readDir();
-
             waitCount++;
-
         }
 
         semValue = semctl(n, 0, GETVAL);
 
     } while (semValue > 0);
-    //printf("waitcount %d\n", waitCount);
 
     printf("Thread: %ld Reads: %d\n",(int long)pthread_self(), callToOpenDir);
     totalCount += callToOpenDir;
@@ -232,16 +217,6 @@ void *threadMain(void *dummy){
  * adding a path to a the pathList
  */
 int readDir(void){
-
-    /*
-    semaphore n;
-
-    if ((n = initsem(1001)) == -1) {
-        perror("Can't create semaphore");
-        exit(1);
-    }*/
-
-
     int callToOpendir = 0;
     // lock the pathList
     pthread_mutex_lock(&mtx_pathList);
