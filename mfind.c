@@ -200,6 +200,7 @@ void *threadMain(void *dummy){
         if(gotWork==0){
             waitCount--;
             callToOpenDir += readDir();
+            sem_getvalue(&pathCount, &semTest);
             waitCount++;
 
         } else if (errno!=EAGAIN){
@@ -207,7 +208,7 @@ void *threadMain(void *dummy){
         } else if (errno==EAGAIN){
 
         }
-        sem_getvalue(&pathCount, &semTest);
+
 
     } while (waitCount < threadsCorrected && semTest > 0);
 
