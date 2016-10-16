@@ -305,13 +305,13 @@ int readDir(void){
 
                         //mutex lock resultList
                         pthread_mutex_lock(&mtx_resultList);
-                        printf("resultlist locked\n");
+                        //printf("resultlist locked\n");
                         //add to resultList
                         listInsert(listLast(resultList), (data)insertionRecord);
 
                         //mutex unlock resultList
                         pthread_mutex_unlock(&mtx_resultList);
-                        printf("resultlist unlocked\n");
+                        //printf("resultlist unlocked\n");
 
                     }
 
@@ -368,13 +368,13 @@ int readDir(void){
 
                         //mutex lock resultList
                         pthread_mutex_lock(&mtx_resultList);
-                        printf("resultlist locked\n");
+                        //printf("resultlist locked\n");
                         //add to resultList
                         listInsert(listLast(resultList), (data)insertionRecord);
 
                         //mutex unlock resultList
                         pthread_mutex_unlock(&mtx_resultList);
-                        printf("resultlist unlocked\n");
+                        //printf("resultlist unlocked\n");
 
                     }
 
