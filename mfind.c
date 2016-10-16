@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
     if(matchType == 100 || matchType == 102 || matchType == 108){
         //printf("type set to %c\n", matchType);
     } else {
-        printf("unknown type, will match for name\n");
+        //printf("unknown type, will match for name\n");
         matchType = 0;
     }
 
@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
     //printf("%ld\n", pathmax);
 
     if(listIsEmpty(resultList)){
-        printf("There was no match");
+        //printf("There was no match");
     } else {
         bool moreResults = true;
         listPosition currentPosition = listFirst(resultList);
