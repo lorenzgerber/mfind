@@ -2,7 +2,7 @@
 
 semaphore initsem(int key)
 {
-    return semget(key, 1, 0600 | IPC_CREAT | IPC_NOWAIT);
+    return semget(key, 1, 0600 | IPC_CREAT);
 }
 
 int semwait(semaphore semid)

@@ -9,6 +9,7 @@ list *resultList;
 char matchType = 0;
 char *toMatch;
 semaphore n;
+int nrThreads = 0;
 
 void pathRecordFree(void *recordToFree){
     pathRecord *record = (pathRecord*)recordToFree;
@@ -120,6 +121,7 @@ int main(int argc, char *argv[]) {
      * start main function for master thread
      */
     threadMain(NULL);
+    nrThreads--;
 
     /*
      * wait for all threads to finish
@@ -149,6 +151,8 @@ int main(int argc, char *argv[]) {
         }
     }
     killsem(n);
+    listFree(pathList);
+    listFree(resultList);
     exit(EXIT_SUCCESS);
 }
 
@@ -165,7 +169,8 @@ void *threadMain(void *dummy){
         } else if(check != EAGAIN){
             callToOpenDir += readDir();
         }
-    } while (semctl(n, 0, GETVAL) > 0);
+
+    } while (semctl(n, 0, GETVAL) > 0 );
     printf("Thread: %ld Reads: %d\n",(int long)pthread_self(), callToOpenDir);
     return NULL;
 }
