@@ -193,17 +193,8 @@ void *threadMain(void *dummy){
         threadsCorrected++;
     }
 
-    /*
-    semaphore n;
-
-    if ((n = initsem(1001)) == -1) {
-        perror("Can't create semaphore");
-        exit(1);
-    }*/
-
-
     waitCount++;
-    int testo;
+    int semValue;
 
     do{
 
@@ -211,8 +202,7 @@ void *threadMain(void *dummy){
         //printf("%d\n", waitCount);
         int check = semwait(n);
 
-        testo = semctl(n, 0, GETVAL);
-        //printf("%d\n", testo);
+        //printf("%d\n", semValue);
 
         if (check == -1) {
             perror("Error waiting for semaphore");
@@ -227,10 +217,10 @@ void *threadMain(void *dummy){
             waitCount++;
 
         }
-        testo = semctl(n, 0, GETVAL);
+        semValue = semctl(n, 0, GETVAL);
 
 
-    } while (waitCount < threadsCorrected && testo > 0);
+    } while (waitCount < threadsCorrected && semValue > 0);
 
     printf("Thread: %ld Reads: %d\n",(int long)pthread_self(), callToOpenDir);
     totalCount += callToOpenDir;
@@ -427,6 +417,15 @@ int readDir(void){
             if (closedir(dp) < 0){
                 perror("closedir");
             }
+            // could remove the directory
+            pthread_mutex_lock(&mtx_pathList);
+            //printf("pathlist locked\n");
+            listRemove(pathList, currentPosition);
+            //mutex unlock pathlist
+            pthread_mutex_unlock(&mtx_pathList);
+            //printf("pathlist unlocked\n");
+
+
         }
 
     }
