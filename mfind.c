@@ -5,14 +5,14 @@
 pthread_mutex_t mtx_pathList;
 pthread_mutex_t mtx_resultList;
 int waitCount = 0;
-sem_t pathCount;
 int nrThreads = 0;
 list *pathList;
 list *resultList;
 char matchType = 0;
 char *toMatch;
-bool finished = false;
+
 int totalCount = 0;
+semaphore n;
 
 void pathRecordFree(void *recordToFree){
     pathRecord *record = (pathRecord*)recordToFree;
@@ -79,6 +79,16 @@ int main(int argc, char *argv[]) {
     }
 
     /*
+     * Initialize nrPath Semaphore
+     */
+    if ((n = initsem(1001)) == -1) {
+        perror("Can't create semaphore");
+        exit(1);
+    }
+
+
+
+    /*
      * are the provided path'es valid
      */
     for (int iii = argc - 2 ; iii >= optind; iii--){
@@ -99,6 +109,12 @@ int main(int argc, char *argv[]) {
         insertionRecord->searched = false;
         listInsert(listLast(pathList), (data)insertionRecord);
         nrDirectories++;
+        if (semsignal(n) == -1) {
+            perror("Error signalling the semaphore");
+            exit(1);
+        }
+
+
 
     }
     /*
@@ -106,13 +122,8 @@ int main(int argc, char *argv[]) {
      */
     toMatch = strdup(argv[argc-1]);
 
-    /*
-     * Initialize nrPath Semaphore
-     */
-    if(sem_init(&pathCount, 0, nrDirectories)<0){
-        perror("sem_init");
-        exit(EXIT_FAILURE);
-    }
+
+
 
 
     /*
@@ -165,6 +176,7 @@ int main(int argc, char *argv[]) {
         }
     }
     printf("total count %d\n", totalCount );
+    killsem(n);
     exit(EXIT_SUCCESS);
 }
 
@@ -176,43 +188,51 @@ int main(int argc, char *argv[]) {
  */
 void *threadMain(void *dummy){
     int callToOpenDir = 0;
-    int gotWork;
-    int semTest;
-    struct timespec ts;
     int threadsCorrected = nrThreads;
     if(nrThreads==1){
         threadsCorrected++;
     }
 
-    if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
-        perror("clock_gettime");
-        exit(EXIT_FAILURE);
-    }
-    ts.tv_sec += 1;
+    /*
+    semaphore n;
+
+    if ((n = initsem(1001)) == -1) {
+        perror("Can't create semaphore");
+        exit(1);
+    }*/
+
 
     waitCount++;
+    int testo;
 
     do{
 
 
-        gotWork = sem_timedwait(&pathCount, &ts);
         //printf("%d\n", waitCount);
-        if(gotWork==0){
+        int check = semwait(n);
+
+        testo = semctl(n, 0, GETVAL);
+        //printf("%d\n", testo);
+
+        if (check == -1) {
+            perror("Error waiting for semaphore");
+            exit(1);
+        } else if(check == EAGAIN){
+            //printf("no work available\n");
+        } else {
+            //printf("readDir\n");
             waitCount--;
             callToOpenDir += readDir();
-            sem_getvalue(&pathCount, &semTest);
+
             waitCount++;
 
-        } else if (errno!=EAGAIN){
-            perror("sem_trywait");
-        } else if (errno==EAGAIN){
-
         }
+        testo = semctl(n, 0, GETVAL);
 
 
-    } while (waitCount < threadsCorrected && semTest > 0);
+    } while (waitCount < threadsCorrected && testo > 0);
 
-    printf("Thread: %ld Reads: %d\n",pthread_self(), callToOpenDir);
+    printf("Thread: %ld Reads: %d\n",(int long)pthread_self(), callToOpenDir);
     totalCount += callToOpenDir;
     return NULL;
 }
@@ -221,6 +241,16 @@ void *threadMain(void *dummy){
  * adding a path to a the pathList
  */
 int readDir(void){
+
+    /*
+    semaphore n;
+
+    if ((n = initsem(1001)) == -1) {
+        perror("Can't create semaphore");
+        exit(1);
+    }*/
+
+
     int callToOpendir = 0;
     // lock the pathList
     pthread_mutex_lock(&mtx_pathList);
@@ -231,7 +261,7 @@ int readDir(void){
     // find path to work on
     while(foundOrEnd == false){
         if(((pathRecord*)listInspect(currentPosition))->searched == false){
-           // printf("we have one to work on\n");
+           //printf("we have one to work on\n");
             // mark path as done
             pathRecord* workRecord = (pathRecord*)listInspect(currentPosition);
             workRecord->searched = true;
@@ -338,7 +368,13 @@ int readDir(void){
                     //printf("pathlist unlocked\n");
 
                     //semaphore post
-                    sem_post(&pathCount);
+
+                    //sem_post(&pathCount);
+                    if (semsignal(n) == -1) {
+                        perror("Error signalling the semaphore");
+                        exit(1);
+                    }
+                    //printf("signalling\n");
 
 
                 } else if(S_ISREG(statbuf.st_mode) ==1){

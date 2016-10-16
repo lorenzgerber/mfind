@@ -14,6 +14,7 @@
 #include <pthread.h>
 #include <limits.h>
 #include <sys/stat.h>
+#include "semops.h"
 
 #include "list.h"
 
