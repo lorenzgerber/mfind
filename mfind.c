@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
      * Initialize variables
      */
     int opt;
-    
+
     int nrDirectories = 0;
 
     pathList = listEmpty();
@@ -253,137 +253,145 @@ int readDir(void){
     struct dirent *dirp;
     DIR *dp;
     char * currentPath = ((pathRecord*)listInspect(currentPosition))->path;
+    if(access(currentPath, R_OK|X_OK) < 0){
+        perror("access");
+    } else {
+        if((dp = opendir(currentPath))==NULL){
+            fprintf(stderr, "can't read directory\n");
+        } else {
+            callToOpendir++;
+            while ((dirp= readdir(dp)) != NULL){
+                if (strcmp(dirp->d_name, ".") == 0  ||
+                    strcmp(dirp->d_name, "..") == 0)
+                    continue;
+                //printf("%s %d\n", dirp->d_name, (int) strlen(currentPath));
 
-    if((dp = opendir(currentPath))==NULL){
-        printf("can't read directory");
-    }
-    callToOpendir++;
-    while ((dirp= readdir(dp)) != NULL){
-        if (strcmp(dirp->d_name, ".") == 0  ||
-            strcmp(dirp->d_name, "..") == 0)
-            continue;
-        //printf("%s %d\n", dirp->d_name, (int) strlen(currentPath));
+                /*
+                 * prepare path + name
+                 */
+                size_t pathLength = strlen(currentPath);
+                size_t fileLength = strlen(dirp->d_name);
+                int multiplier = 1;
+                while((pathLength+fileLength+2) > (pathmax * multiplier)){
+                    multiplier ++;
+                }
+                char* fullpath = calloc(pathmax * multiplier, sizeof(char));
+                strcpy(fullpath, currentPath);
+                fullpath[pathLength++] = '/';
+                strcpy(&fullpath[pathLength], dirp->d_name);
+                //printf("%s\n", fullpath);
 
-        /*
-         * prepare path + name
-         */
-        size_t pathLength = strlen(currentPath);
-        size_t fileLength = strlen(dirp->d_name);
-        int multiplier = 1;
-        while((pathLength+fileLength+2) > (pathmax * multiplier)){
-            multiplier ++;
+                bool matched = false;
+                //checkmatch
+                if(strcmp(dirp->d_name, toMatch)==0){
+                    //printf("WE GOT A MATCH\n");
+                    matched = true;
+                };
+
+                // get lstat of current entry
+                if(lstat(fullpath, &statbuf)<0){
+                    perror("lstat");
+                };
+
+                //if directory found
+                if (S_ISDIR(statbuf.st_mode) == 1){
+                    //printf("%s is a directory\n", fullpath);
+
+                    if(matched && (matchType == 100 || matchType == 0)){
+
+                        char* insertionPath = strdup(fullpath);
+                        resultRecord *insertionRecord = malloc(sizeof(resultRecord) * 1);
+                        insertionRecord->path = insertionPath;
+
+                        //mutex lock resultList
+                        pthread_mutex_lock(&mtx_resultList);
+                        printf("resultlist locked\n");
+                        //add to resultList
+                        listInsert(listLast(resultList), (data)insertionRecord);
+
+                        //mutex unlock resultList
+                        pthread_mutex_unlock(&mtx_resultList);
+                        printf("resultlist unlocked\n");
+
+                    }
+
+                    // make new pathRecord
+                    char* insertionPath = strdup(fullpath);
+                    pathRecord *insertionRecord = malloc(sizeof(pathRecord) * 1);
+                    insertionRecord->path = insertionPath;
+                    insertionRecord->searched = false;
+
+                    //mutex lock pathList
+                    pthread_mutex_lock(&mtx_pathList);
+                    //printf("pathlist locked\n");
+
+
+                    //add directory to path list
+                    listInsert(listLast(pathList), (data)insertionRecord);
+
+                    //semaphore post
+                    sem_post(&pathCount);
+
+                    //mutex unlock pathlist
+                    pthread_mutex_unlock(&mtx_pathList);
+                    //printf("pathlist unlocked\n");
+
+                } else if(S_ISREG(statbuf.st_mode) ==1){
+                    //printf("%s is a file\n", fullpath);
+
+                    if(matched && (matchType == 102 || matchType == 0)){
+
+                        char* insertionPath = strdup(fullpath);
+                        resultRecord *insertionRecord = malloc(sizeof(resultRecord) * 1);
+                        insertionRecord->path = insertionPath;
+
+                        //mutex lock resultList
+                        pthread_mutex_lock(&mtx_resultList);
+                        //printf("resultlist locked\n");
+                        //add to resultList
+                        listInsert(listLast(resultList), (data)insertionRecord);
+
+                        //mutex unlock resultList
+                        pthread_mutex_unlock(&mtx_resultList);
+                        //printf("resultlist unlocked\n");
+
+                    }
+
+                } else if(S_ISLNK(statbuf.st_mode) == 1){
+                    //printf("%s is a link\n", fullpath);
+
+                    if(matched && (matchType == 108 || matchType == 0)){
+
+                        char* insertionPath = strdup(fullpath);
+                        resultRecord *insertionRecord = malloc(sizeof(resultRecord) * 1);
+                        insertionRecord->path = insertionPath;
+
+                        //mutex lock resultList
+                        pthread_mutex_lock(&mtx_resultList);
+                        printf("resultlist locked\n");
+                        //add to resultList
+                        listInsert(listLast(resultList), (data)insertionRecord);
+
+                        //mutex unlock resultList
+                        pthread_mutex_unlock(&mtx_resultList);
+                        printf("resultlist unlocked\n");
+
+                    }
+
+                }
+
+                free(fullpath);
+
+            }
+            if (closedir(dp) < 0){
+                perror("closedir");
+            }
         }
-        char* fullpath = calloc(pathmax * multiplier, sizeof(char));
-        strcpy(fullpath, currentPath);
-        fullpath[pathLength++] = '/';
-        strcpy(&fullpath[pathLength], dirp->d_name);
-        //printf("%s\n", fullpath);
-
-        bool matched = false;
-        //checkmatch
-        if(strcmp(dirp->d_name, toMatch)==0){
-            //printf("WE GOT A MATCH\n");
-            matched = true;
-        };
-
-        // get lstat of current entry
-        if(lstat(fullpath, &statbuf)<0){
-            perror("lstat");
-        };
-
-        //if directory found
-        if (S_ISDIR(statbuf.st_mode) == 1){
-            //printf("%s is a directory\n", fullpath);
-
-            if(matched && (matchType == 100 || matchType == 0)){
-
-                char* insertionPath = strdup(fullpath);
-                resultRecord *insertionRecord = malloc(sizeof(resultRecord) * 1);
-                insertionRecord->path = insertionPath;
-
-                //mutex lock resultList
-                pthread_mutex_lock(&mtx_resultList);
-                printf("resultlist locked\n");
-                //add to resultList
-                listInsert(listLast(resultList), (data)insertionRecord);
-
-                //mutex unlock resultList
-                pthread_mutex_unlock(&mtx_resultList);
-                printf("resultlist unlocked\n");
-
-            }
-
-            // make new pathRecord
-            char* insertionPath = strdup(fullpath);
-            pathRecord *insertionRecord = malloc(sizeof(pathRecord) * 1);
-            insertionRecord->path = insertionPath;
-            insertionRecord->searched = false;
-
-            //mutex lock pathList
-            pthread_mutex_lock(&mtx_pathList);
-            //printf("pathlist locked\n");
-
-
-            //add directory to path list
-            listInsert(listLast(pathList), (data)insertionRecord);
-
-            //semaphore post
-            sem_post(&pathCount);
-
-            //mutex unlock pathlist
-            pthread_mutex_unlock(&mtx_pathList);
-            //printf("pathlist unlocked\n");
-
-        } else if(S_ISREG(statbuf.st_mode) ==1){
-            //printf("%s is a file\n", fullpath);
-
-            if(matched && (matchType == 102 || matchType == 0)){
-
-                char* insertionPath = strdup(fullpath);
-                resultRecord *insertionRecord = malloc(sizeof(resultRecord) * 1);
-                insertionRecord->path = insertionPath;
-
-                //mutex lock resultList
-                pthread_mutex_lock(&mtx_resultList);
-                //printf("resultlist locked\n");
-                //add to resultList
-                listInsert(listLast(resultList), (data)insertionRecord);
-
-                //mutex unlock resultList
-                pthread_mutex_unlock(&mtx_resultList);
-                //printf("resultlist unlocked\n");
-
-            }
-
-        } else if(S_ISLNK(statbuf.st_mode) == 1){
-            //printf("%s is a link\n", fullpath);
-
-            if(matched && (matchType == 108 || matchType == 0)){
-
-                char* insertionPath = strdup(fullpath);
-                resultRecord *insertionRecord = malloc(sizeof(resultRecord) * 1);
-                insertionRecord->path = insertionPath;
-
-                //mutex lock resultList
-                pthread_mutex_lock(&mtx_resultList);
-                printf("resultlist locked\n");
-                //add to resultList
-                listInsert(listLast(resultList), (data)insertionRecord);
-
-                //mutex unlock resultList
-                pthread_mutex_unlock(&mtx_resultList);
-                printf("resultlist unlocked\n");
-
-            }
-
-        }
-
-        free(fullpath);
 
     }
-    if (closedir(dp) < 0){
-        perror("closedir");
-    }
+
+
+
 
     return callToOpendir;
 }
