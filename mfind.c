@@ -217,10 +217,11 @@ void *threadMain(void *dummy){
             waitCount++;
 
         }
+
         semValue = semctl(n, 0, GETVAL);
 
-
-    } while (waitCount < threadsCorrected && semValue > 0);
+    } while (semValue > 0);
+    //printf("waitcount %d\n", waitCount);
 
     printf("Thread: %ld Reads: %d\n",(int long)pthread_self(), callToOpenDir);
     totalCount += callToOpenDir;
