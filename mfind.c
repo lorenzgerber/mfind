@@ -11,6 +11,8 @@ list *pathList;
 list *resultList;
 char matchType = 0;
 char *toMatch;
+bool finished = false;
+int totalCount = 0;
 
 void pathRecordFree(void *recordToFree){
     pathRecord *record = (pathRecord*)recordToFree;
@@ -162,6 +164,7 @@ int main(int argc, char *argv[]) {
             }
         }
     }
+    printf("total count %d\n", totalCount );
     exit(EXIT_SUCCESS);
 }
 
@@ -173,24 +176,24 @@ int main(int argc, char *argv[]) {
  */
 void *threadMain(void *dummy){
     int callToOpenDir = 0;
-    //printf("in the thread\n");
-
-    // increase waitCount initially;
-
     int gotWork;
     int semTest;
+    struct timespec ts;
+
+    if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
+        perror("clock_gettime");
+        exit(EXIT_FAILURE);
+    }
+    ts.tv_sec += 1;
 
     waitCount++;
 
-    // need to put this all in a do while waitCount < nrThreads
     do{
 
 
-
-        sem_getvalue(&pathCount, &semTest);
-        gotWork = sem_trywait(&pathCount);
+        gotWork = sem_timedwait(&pathCount, &ts);
+        //printf("%d\n", waitCount);
         if(gotWork==0){
-            //printf("we got some work\n");
             waitCount--;
             callToOpenDir += readDir();
             waitCount++;
@@ -198,21 +201,14 @@ void *threadMain(void *dummy){
         } else if (errno!=EAGAIN){
             perror("sem_trywait");
         } else if (errno==EAGAIN){
-            //sem_getvalue(&pathCount, &semTest);
-            //printf("after %d\n", semTest);
 
         }
-
-
-        //printf("this is semTest %d and waitCount %d\n", semTest, waitCount);
+        sem_getvalue(&pathCount, &semTest);
 
     } while (waitCount < nrThreads && semTest > 0);
 
-    //printf("seems like everybody finished\n");
     printf("Thread: %ld Reads: %d\n",pthread_self(), callToOpenDir);
-
-
-
+    totalCount += callToOpenDir;
     return NULL;
 }
 
@@ -329,12 +325,16 @@ int readDir(void){
                     //add directory to path list
                     listInsert(listLast(pathList), (data)insertionRecord);
 
-                    //semaphore post
-                    sem_post(&pathCount);
+
+
 
                     //mutex unlock pathlist
                     pthread_mutex_unlock(&mtx_pathList);
                     //printf("pathlist unlocked\n");
+
+                    //semaphore post
+                    sem_post(&pathCount);
+
 
                 } else if(S_ISREG(statbuf.st_mode) ==1){
                     //printf("%s is a file\n", fullpath);
@@ -389,9 +389,6 @@ int readDir(void){
         }
 
     }
-
-
-
 
     return callToOpendir;
 }
