@@ -179,6 +179,10 @@ void *threadMain(void *dummy){
     int gotWork;
     int semTest;
     struct timespec ts;
+    int threadsCorrected = nrThreads;
+    if(nrThreads==1){
+        threadsCorrected++;
+    }
 
     if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
         perror("clock_gettime");
@@ -205,7 +209,7 @@ void *threadMain(void *dummy){
         }
         sem_getvalue(&pathCount, &semTest);
 
-    } while (waitCount < nrThreads && semTest > 0);
+    } while (waitCount < threadsCorrected && semTest > 0);
 
     printf("Thread: %ld Reads: %d\n",pthread_self(), callToOpenDir);
     totalCount += callToOpenDir;
