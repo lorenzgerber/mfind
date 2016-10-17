@@ -40,4 +40,10 @@ void pathRecordFree(void *recordToFree);
 
 void resultRecordFree(void *recordToFree);
 
-int readDir(void);
+int readDirectory(void);
+
+int getWorkPath(listPosition *workPath);
+
+int insertResult(char* fullpath);
+
+int insertPath(char* fullpath);

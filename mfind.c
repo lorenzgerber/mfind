@@ -4,12 +4,12 @@
 
 pthread_mutex_t mtx_pathList;
 pthread_mutex_t mtx_resultList;
+semaphore n;
 list *pathList;
 list *resultList;
 char matchType = 0;
 char *toMatch;
-semaphore n;
-int nrThreads = 0;
+
 
 void pathRecordFree(void *recordToFree){
     pathRecord *record = (pathRecord*)recordToFree;
@@ -29,15 +29,6 @@ int main(int argc, char *argv[]) {
      */
     int opt;
     int nrThreads = 0;
-    int nrDirectories = 0;
-
-    pathList = listEmpty();
-    listSetMemHandler(pathList, pathRecordFree);
-    resultList = listEmpty();
-    listSetMemHandler(resultList, resultRecordFree);
-
-    pthread_mutex_init(&mtx_pathList, NULL);
-    pthread_mutex_init(&mtx_resultList, NULL);
 
     /*
      * Parse commandline options
@@ -66,15 +57,25 @@ int main(int argc, char *argv[]) {
     }
 
     /*
-     * Initialize nrPath Semaphore
+     * Initialize data- and synchronization
+     * structures
      */
+    pathList = listEmpty();
+    listSetMemHandler(pathList, pathRecordFree);
+    resultList = listEmpty();
+    listSetMemHandler(resultList, resultRecordFree);
+
     if ((n = initsem(1001)) == -1) {
         perror("Can't create semaphore");
         exit(1);
     }
+    pthread_mutex_init(&mtx_pathList, NULL);
+    pthread_mutex_init(&mtx_resultList, NULL);
+
+
 
     /*
-     * are the provided path'es valid
+     * Check validity of provided path's
      */
     for (int iii = argc - 2 ; iii >= optind; iii--){
         struct stat statbuf;
@@ -88,17 +89,20 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
         }
 
-        char* insertionPath = strdup(argv[iii]);
-        pathRecord *insertionRecord = malloc(sizeof(pathRecord) * 1);
-        insertionRecord->path = insertionPath;
-        insertionRecord->searched = false;
-        listInsert(listLast(pathList), (data)insertionRecord);
-        nrDirectories++;
+        /*
+         * Add path's to pathList
+         * and signal semaphore
+         */
+        if(insertPath(argv[iii])<0){
+            fprintf(stderr, "insertPath error\n");
+        }
+
         if (semsignal(n) == -1) {
             perror("Error signalling the semaphore");
             exit(1);
         }
     }
+
     /*
      * String to match
      */
@@ -149,15 +153,21 @@ int main(int argc, char *argv[]) {
             }
         }
     }
+
+    /*
+     * Clean-up
+     */
     killsem(n);
     listFree(pathList);
     listFree(resultList);
     exit(EXIT_SUCCESS);
 }
 
-/*
- * Thread main function
+/**
+ * threadMain
  *
+ * @param dummy
+ * @return
  */
 void *threadMain(void *dummy){
     int callToOpenDir = 0;
@@ -166,7 +176,7 @@ void *threadMain(void *dummy){
         if (check == -1) {
             perror("Error waiting for semaphore");
         } else if(check != EAGAIN){
-            callToOpenDir += readDir();
+            callToOpenDir += readDirectory();
         }
 
     } while (semctl(n, 0, GETVAL) > 0 );
@@ -174,15 +184,139 @@ void *threadMain(void *dummy){
     return NULL;
 }
 
-/*
- * adding a path to a the pathList
+/**
+ * readDirectory
+ *
+ * @return
  */
-int readDir(void){
+int readDirectory(void){
     int callToOpendir = 0;
+
+    /*
+     *  get the path to work on
+     */
+    listPosition currentPosition;
+    getWorkPath(&currentPosition);
+
+    struct stat statbuf;
+    struct dirent *dirp;
+    DIR *dp;
+    char * currentPath = ((pathRecord*)listInspect(currentPosition))->path;
+
+    /*
+     * Check if we have access permission
+     */
+    if(access(currentPath, R_OK|X_OK) < 0){
+        perror("access");
+        return callToOpendir;
+    }
+
+    /*
+     * Check if we can read the directory
+     */
+    if((dp = opendir(currentPath))==NULL){
+        fprintf(stderr, "can't read directory\n");
+        return callToOpendir;
+    } else {
+        callToOpendir++;
+    }
+
+    /*
+     * Loop through directory
+     */
+    while ((dirp= readdir(dp)) != NULL){
+        if (strcmp(dirp->d_name, ".") == 0  ||
+            strcmp(dirp->d_name, "..") == 0)
+            continue;
+
+        /*
+         * prepare path + name
+         */
+        size_t pathLength = strlen(currentPath);
+        size_t fileLength = strlen(dirp->d_name);
+        int multiplier = 1;
+        while((pathLength+fileLength+2) > (pathmax * multiplier)){
+            multiplier ++;
+        }
+        char* fullpath = calloc(pathmax * multiplier, sizeof(char));
+        strcpy(fullpath, currentPath);
+        fullpath[pathLength++] = '/';
+        strcpy(&fullpath[pathLength], dirp->d_name);
+
+        bool matched = false;
+
+        if(strcmp(dirp->d_name, toMatch)==0){
+            matched = true;
+        };
+
+        if(lstat(fullpath, &statbuf)<0){
+            perror("lstat");
+        };
+
+        /*
+         * Check directory match
+         */
+        if (S_ISDIR(statbuf.st_mode) == 1){
+            if(matched && (matchType == 100 || matchType == 0)){
+                if(insertResult(fullpath)<0){
+                    fprintf(stderr,"insert Result error\n");
+                }
+            }
+
+            /*
+             * Add Directory to path list
+             */
+            if(insertPath(fullpath)<0){
+                fprintf(stderr,"insert Result error\n");
+            }
+
+            if (semsignal(n) == -1) {
+                perror("Error signalling the semaphore");
+                exit(1);
+            }
+        /*
+         * Check file match
+         */
+        } else if(S_ISREG(statbuf.st_mode) ==1){
+            if(matched && (matchType == 102 || matchType == 0)){
+
+                if(insertResult(fullpath)<0){
+                    fprintf(stderr,"insert Result error\n");
+                }
+            }
+        /*
+         * Check link match
+         */
+        } else if(S_ISLNK(statbuf.st_mode) == 1){
+            if(matched && (matchType == 108 || matchType == 0)){
+                if(insertResult(fullpath)<0){
+                    fprintf(stderr,"insert Result error\n");
+                }
+            }
+
+        }
+        free(fullpath);
+    }
+    if (closedir(dp) < 0){
+        perror("closedir");
+    }
+    pthread_mutex_lock(&mtx_pathList);
+    listRemove(pathList, currentPosition);
+    pthread_mutex_unlock(&mtx_pathList);
+
+    return callToOpendir;
+}
+
+/**
+ * getWorkPath
+ *
+ * @param workPath
+ * @return
+ */
+int getWorkPath(listPosition *workPath){
     pthread_mutex_lock(&mtx_pathList);
     listPosition currentPosition = listFirst(pathList);
     bool foundOrEnd = false;
-
     // find path to work on
     while(foundOrEnd == false){
         if(((pathRecord*)listInspect(currentPosition))->searched == false){
@@ -190,8 +324,8 @@ int readDir(void){
             workRecord->searched = true;
 
             foundOrEnd = true;
-        }
-        if(listIsEnd(pathList,currentPosition)==true || foundOrEnd == true){
+        } else if (listIsEnd(pathList,currentPosition)==true ){
+            printf("när händer det?\n");
             foundOrEnd = true;
         } else {
             currentPosition = listNext(currentPosition);
@@ -199,104 +333,41 @@ int readDir(void){
     }
     pthread_mutex_unlock(&mtx_pathList);
 
-    struct stat statbuf;
-    struct dirent *dirp;
-    DIR *dp;
-    char * currentPath = ((pathRecord*)listInspect(currentPosition))->path;
-    if(access(currentPath, R_OK|X_OK) < 0){
-        perror("access");
-    } else {
-        if((dp = opendir(currentPath))==NULL){
-            fprintf(stderr, "can't read directory\n");
-        } else {
-            callToOpendir++;
-            while ((dirp= readdir(dp)) != NULL){
-                if (strcmp(dirp->d_name, ".") == 0  ||
-                    strcmp(dirp->d_name, "..") == 0)
-                    continue;
+    *workPath = currentPosition;
+    return 0;
 
-                /*
-                 * prepare path + name
-                 */
-                size_t pathLength = strlen(currentPath);
-                size_t fileLength = strlen(dirp->d_name);
-                int multiplier = 1;
-                while((pathLength+fileLength+2) > (pathmax * multiplier)){
-                    multiplier ++;
-                }
-                char* fullpath = calloc(pathmax * multiplier, sizeof(char));
-                strcpy(fullpath, currentPath);
-                fullpath[pathLength++] = '/';
-                strcpy(&fullpath[pathLength], dirp->d_name);
+}
 
-                bool matched = false;
+/**
+ *  insert Result
+ *
+ * @param fullpath
+ * @return
+ */
+int insertResult(char* fullpath){
+    char* insertionPath = strdup(fullpath);
+    resultRecord *insertionRecord = malloc(sizeof(resultRecord) * 1);
+    insertionRecord->path = insertionPath;
+    pthread_mutex_lock(&mtx_resultList);
+    listInsert(listLast(resultList), (data)insertionRecord);
+    pthread_mutex_unlock(&mtx_resultList);
+    return 0;
+}
 
-                if(strcmp(dirp->d_name, toMatch)==0){
-                    matched = true;
-                };
-
-                if(lstat(fullpath, &statbuf)<0){
-                    perror("lstat");
-                };
-
-                /*
-                 * New Directory to search found
-                 */
-                if (S_ISDIR(statbuf.st_mode) == 1){
-                    if(matched && (matchType == 100 || matchType == 0)){
-
-                        char* insertionPath = strdup(fullpath);
-                        resultRecord *insertionRecord = malloc(sizeof(resultRecord) * 1);
-                        insertionRecord->path = insertionPath;
-                        pthread_mutex_lock(&mtx_resultList);
-                        listInsert(listLast(resultList), (data)insertionRecord);
-                        pthread_mutex_unlock(&mtx_resultList);
-                    }
-
-                    // make new pathRecord
-                    char* insertionPath = strdup(fullpath);
-                    pathRecord *insertionRecord = malloc(sizeof(pathRecord) * 1);
-                    insertionRecord->path = insertionPath;
-                    insertionRecord->searched = false;
-                    pthread_mutex_lock(&mtx_pathList);
-                    listInsert(listLast(pathList), (data)insertionRecord);
-                    pthread_mutex_unlock(&mtx_pathList);
-
-                    if (semsignal(n) == -1) {
-                        perror("Error signalling the semaphore");
-                        exit(1);
-                    }
-                } else if(S_ISREG(statbuf.st_mode) ==1){
-                    if(matched && (matchType == 102 || matchType == 0)){
-
-                        char* insertionPath = strdup(fullpath);
-                        resultRecord *insertionRecord = malloc(sizeof(resultRecord) * 1);
-                        insertionRecord->path = insertionPath;
-                        pthread_mutex_lock(&mtx_resultList);
-                        listInsert(listLast(resultList), (data)insertionRecord);
-                        pthread_mutex_unlock(&mtx_resultList);
-                    }
-                } else if(S_ISLNK(statbuf.st_mode) == 1){
-                    if(matched && (matchType == 108 || matchType == 0)){
-                        char* insertionPath = strdup(fullpath);
-                        resultRecord *insertionRecord = malloc(sizeof(resultRecord) * 1);
-                        insertionRecord->path = insertionPath;
-                        pthread_mutex_lock(&mtx_resultList);
-                        listInsert(listLast(resultList), (data)insertionRecord);
-                        pthread_mutex_unlock(&mtx_resultList);
-                    }
-
-                }
-                free(fullpath);
-            }
-            if (closedir(dp) < 0){
-                perror("closedir");
-            }
-            pthread_mutex_lock(&mtx_pathList);
-            listRemove(pathList, currentPosition);
-            pthread_mutex_unlock(&mtx_pathList);
-        }
-    }
-    return callToOpendir;
+/**
+ * Insert Path
+ *
+ * @param fullpath
+ * @return
+ */
+int insertPath(char* fullpath){
+    char* insertionPath = strdup(fullpath);
+    pathRecord *insertionRecord = malloc(sizeof(pathRecord) * 1);
+    insertionRecord->path = insertionPath;
+    insertionRecord->searched = false;
+    pthread_mutex_lock(&mtx_pathList);
+    listInsert(listLast(pathList), (data)insertionRecord);
+    pthread_mutex_unlock(&mtx_pathList);
+    return 0;
 }
 
