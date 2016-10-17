@@ -121,8 +121,7 @@ int main(int argc, char *argv[]) {
      * start main function for master thread
      */
     threadMain(NULL);
-    nrThreads--;
-
+    
     /*
      * wait for all threads to finish
      */
