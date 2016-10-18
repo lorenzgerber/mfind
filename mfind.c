@@ -160,6 +160,7 @@ int main(int argc, char *argv[]) {
     killsem(n);
     listFree(pathList);
     listFree(resultList);
+    free(toMatch);
     exit(EXIT_SUCCESS);
 }
 
