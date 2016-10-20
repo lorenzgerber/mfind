@@ -7,7 +7,7 @@ pthread_mutex_t mtx_resultList;
 semaphore n;
 list *pathList;
 list *resultList;
-char matchType = 0;
+char type = 0;
 char *toMatch;
 
 
@@ -28,7 +28,8 @@ int main(int argc, char *argv[]) {
      * Initialize variables
      */
     int opt;
-    int nrThreads = 0;
+    int nrthr = 0;
+    int matchSet = false;
 
     /*
      * Parse commandline options
@@ -36,23 +37,36 @@ int main(int argc, char *argv[]) {
     while ((opt = getopt(argc, argv, "t:p:")) != -1) {
         switch (opt) {
             case 't':
-                matchType = *optarg;
+                type = *optarg;
+                matchSet = true;
                 break;
             case 'p':
-                nrThreads = atoi(optarg);
+                nrthr = atoi(optarg);
+                if(nrthr == 0){
+                    fprintf(stderr, "Usage: mfind [-t type] [-p nrthr] start1 [start2 ...] name\n");
+                    exit(EXIT_FAILURE);
+                }
                 break;
             default:
-                fprintf(stderr, "Usage: %s [-t nsecs] [-n] name\n",
-                        argv[0]);
+                fprintf(stderr, "Usage: mfind [-t type] [-p nrthr] start1 [start2 ...] name\n");
                 exit(EXIT_FAILURE);
         }
     }
 
-    if(matchType != 100 && matchType != 102 && matchType != 108){
-        matchType = 0;
+    if(type != 100 && type != 102 && type != 108 && matchSet){
+        fprintf(stderr, "Usage: mfind [-t type] [-p nrthr] start1 [start2 ...] name\n");
+        exit(EXIT_FAILURE);
+    } else {
+        type = 0;
     }
+
+    if (argc - 1 == optind){
+        fprintf(stderr, "Usage: mfind [-t type] [-p nrthr] start1 [start2 ...] name\n");
+        exit(EXIT_FAILURE);
+    }
+
     if (optind >= argc) {
-        fprintf(stderr, "Expected argument after options\n");
+        fprintf(stderr, "Usage: mfind [-t type] [-p nrthr] start1 [start2 ...] name\n");
         exit(EXIT_FAILURE);
     }
 
@@ -111,10 +125,10 @@ int main(int argc, char *argv[]) {
     /*
      * Start all threads
      */
-    pthread_t threads[nrThreads];
+    pthread_t threads[nrthr];
     threads[0] = pthread_self();
 
-    for(int iii = 1; iii < nrThreads;iii++){
+    for(int iii = 1; iii < nrthr;iii++){
         if(pthread_create(&threads[iii], NULL, &threadMain, NULL)){
             perror("pthread\n");
             exit(EXIT_FAILURE);
@@ -129,7 +143,7 @@ int main(int argc, char *argv[]) {
     /*
      * wait for all threads to finish
      */
-    for(int iii = 1; iii < nrThreads;iii++){
+    for(int iii = 1; iii < nrthr;iii++){
         if(pthread_join(threads[iii], NULL)){
             perror("pthread_join");
         }
@@ -258,7 +272,7 @@ int readDirectory(void){
          * Check directory match
          */
         if (S_ISDIR(statbuf.st_mode) == 1){
-            if(matched && (matchType == 100 || matchType == 0)){
+            if(matched && (type == 100 || type == 0)){
                 if(insertResult(fullpath)<0){
                     fprintf(stderr,"insert Result error\n");
                 }
@@ -279,7 +293,7 @@ int readDirectory(void){
          * Check file match
          */
         } else if(S_ISREG(statbuf.st_mode) ==1){
-            if(matched && (matchType == 102 || matchType == 0)){
+            if(matched && (type == 102 || type == 0)){
 
                 if(insertResult(fullpath)<0){
                     fprintf(stderr,"insert Result error\n");
@@ -289,7 +303,7 @@ int readDirectory(void){
          * Check link match
          */
         } else if(S_ISLNK(statbuf.st_mode) == 1){
-            if(matched && (matchType == 108 || matchType == 0)){
+            if(matched && (type == 108 || type == 0)){
                 if(insertResult(fullpath)<0){
                     fprintf(stderr,"insert Result error\n");
                 }
