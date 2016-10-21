@@ -1,3 +1,17 @@
+/**
+ * mfind.c
+ *
+ * Lorenz Gerber
+ *
+ * Laboration 4, 5DV088, HT16
+ *
+ * main code file for program mfind that has a similar functionality
+ * as for example the find program. The programs takes as command line
+ * argument two flags, -t for type of file to search for (f: file,
+ * l: link, d: directory) and -p for number of threads to use. Further, at
+ * least one start search path has to be indicated as well as the file to
+ * search for.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "mfind.h"
 

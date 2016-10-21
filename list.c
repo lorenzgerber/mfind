@@ -1,9 +1,9 @@
-/*
+/**
  * list.c
  *
  * Lorenz Gerber
  *
- * Laboration 1, Course 'System-level programming', HT16
+ * Laboration 4, 5DV088, HT16
  *
  * code file consists an implementation of a double linked list using
  * generic/void data fields.

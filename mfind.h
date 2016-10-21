@@ -1,3 +1,13 @@
+/**
+ * mfind.c
+ *
+ * Lorenz Gerber
+ *
+ * Laboration 4, 5DV088, HT16
+ *
+ * header file for mfind program
+ *
+ */
 #include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>

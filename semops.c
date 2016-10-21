@@ -1,3 +1,12 @@
+/**
+ * sempos.c
+ *
+ * Lorenz Gerber
+ *
+ * Assignment 4, 5DV088 HT16
+ *
+ * Functions for the IPC semaphore
+ */
 #include    "semops.h"
 
 semaphore initsem(int key)
