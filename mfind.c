@@ -67,9 +67,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if(type != 100 && type != 102 && type != 108 && matchSet){
-        fprintf(stderr, "Usage: mfind [-t type] [-p nrthr] start1 [start2 ...] name\n");
-        exit(EXIT_FAILURE);
+    if (matchSet){
+        if(type != 100 && type != 102 && type != 108){
+            fprintf(stderr, "Usage: mfind [-t type] [-p nrthr] start1 [start2 ...] name\n");
+            exit(EXIT_FAILURE);
+        }
     } else {
         type = 0;
     }
@@ -153,7 +155,7 @@ int main(int argc, char *argv[]) {
      * start main function for master thread
      */
     threadMain(NULL);
-    
+
     /*
      * wait for all threads to finish
      */
@@ -236,7 +238,8 @@ int readDirectory(void){
      * Check if we have access permission
      */
     if(access(currentPath, R_OK|X_OK) < 0){
-        perror("access");
+        fprintf(stderr, "mfind: '%s': permission denied\n", currentPath);
+        //perror("access");
         return callToOpendir;
     }
 
